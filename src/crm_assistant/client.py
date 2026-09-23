@@ -1,4 +1,5 @@
 import logging
+import time
 
 import requests
 
@@ -77,8 +78,12 @@ def search_records(
     criteria: str | None = None,
     word: str | None = None,
     email: str | None = None,
+    retries: int = 2,
+    retry_delay: float = 1.5,
 ) -> list[dict]:
-    """Search a module. Use exactly one of criteria (exact field match), word (loose search), or email."""
+    """Search a module. Use exactly one of criteria (exact field match), word (loose search), or email.
+    Retries a couple of times on an empty result, since Zoho's search index can lag a
+    few seconds behind a record that was only just created."""
     params = {}
     if criteria:
         params["criteria"] = criteria
@@ -86,10 +91,22 @@ def search_records(
         params["word"] = word
     if email:
         params["email"] = email
-    data = _request("GET", f"{module}/search", params=params)
-    results = data.get("data", [])
-    logger.info("Search on %s (%s) returned %d record(s)", module, params, len(results))
-    return results
+
+    for attempt in range(retries + 1):
+        data = _request("GET", f"{module}/search", params=params)
+        results = data.get("data", [])
+        if results or attempt == retries:
+            logger.info(
+                "Search on %s (%s) returned %d record(s) after %d attempt(s)",
+                module, params, len(results), attempt + 1,
+            )
+            return results
+        logger.info(
+            "Search on %s (%s) returned nothing, retrying in %.1fs (possible indexing lag)",
+            module, params, retry_delay,
+        )
+        time.sleep(retry_delay)
+    return []
 
 
 # ---- Convenience wrappers used by the ticket assistant ----
@@ -104,3 +121,12 @@ def get_account_by_id(account_id: str) -> dict | None:
 
 def get_contact_by_email(email: str) -> list[dict]:
     return search_records("Contacts", email=email)
+
+
+def search_leads(company: str | None = None, email: str | None = None) -> list[dict]:
+    """Look up a Lead by company name or email address. Provide at least one."""
+    if email:
+        return search_records("Leads", email=email)
+    if company:
+        return search_records("Leads", criteria=f"(Company:equals:{company})")
+    return []

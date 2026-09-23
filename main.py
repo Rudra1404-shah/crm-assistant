@@ -3,15 +3,16 @@ import logging
 import requests
 from fastapi import FastAPI, HTTPException
 
-from src.crm_assistant import services
-from src.crm_assistant.client import (
+from crm_assistant import services
+from crm_assistant.client import (
     create_record,
     delete_record,
     get_accounts_by_company,
     get_contact_by_email,
+    search_leads,
     update_record,
 )
-from src.crm_assistant.schemas import (
+from crm_assistant.schemas import (
     AccountCreate,
     AccountUpdate,
     ContactCreate,
@@ -41,31 +42,6 @@ def _call_zoho(func, *args, **kwargs):
     except requests.RequestException as e:
         logger.error("Could not reach Zoho: %s", e)
         raise HTTPException(status_code=502, detail=f"Could not reach Zoho: {e}")
-
-
-# ---- Tickets (Project 1 - your own service) ----
-
-@app.post("/tickets", response_model=services.Ticket)
-def create_ticket(ticket: services.TicketCreate) -> services.Ticket:
-    return services.create_ticket(ticket)
-
-
-@app.get("/tickets", response_model=list[services.Ticket])
-def list_tickets(
-    company: str | None = None,
-    status: services.Status | None = None,
-    priority: services.Priority | None = None,
-) -> list[services.Ticket]:
-    return services.list_tickets(company=company, status=status, priority=priority)
-
-
-@app.get("/tickets/{ticket_id}", response_model=services.Ticket)
-def get_ticket(ticket_id: int) -> services.Ticket:
-    ticket = services.get_ticket(ticket_id)
-    if ticket is None:
-        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
-    return ticket
-
 
 # ---- Accounts (Zoho) ----
 
@@ -116,6 +92,11 @@ def delete_contact(contact_id: str):
 
 
 # ---- Leads (Zoho) ----
+
+@app.get("/zoho/leads")
+def zoho_leads(company: str | None = None, email: str | None = None):
+    return _call_zoho(search_leads, company=company, email=email)
+
 
 @app.post("/zoho/leads")
 def create_lead(lead: LeadCreate):
