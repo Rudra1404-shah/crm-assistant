@@ -21,16 +21,20 @@ logger = logging.getLogger(__name__)
 # ---- Accounts ----
 
 @tool
-def search_accounts(company: str) -> str:
-    """Look up a company's Account record in the CRM by exact name."""
-    accounts = get_accounts_by_company(company)
+def search_accounts(company: str | None = None, industry: str | None = None) -> str:
+    """Look up Account records by exact company name, industry, or both. With
+    neither, lists recent Accounts."""
+    accounts = get_accounts_by_company(company, industry)
     if not accounts:
-        return f"No account found for '{company}'."
-    acc = accounts[0]
-    return (
-        f"id={acc.get('id')}, Account_Name={acc.get('Account_Name')}, "
-        f"industry={acc.get('Industry')}, phone={acc.get('Phone')}, website={acc.get('Website')}"
-    )
+        return "No accounts found matching those filters."
+    lines = [
+        f"id={a.get('id')}, {a.get('Account_Name')}, industry={a.get('Industry')}, "
+        f"phone={a.get('Phone')}, website={a.get('Website')}"
+        for a in accounts
+    ]
+    shown = lines[:15]
+    suffix = f"\n...and {len(lines) - 15} more" if len(lines) > 15 else ""
+    return f"{len(accounts)} account(s) found:\n" + "\n".join(shown) + suffix
 
 
 @tool
@@ -173,18 +177,29 @@ def delete_contact(contact_id: str) -> str:
 # ---- Leads ----
 
 @tool
-def search_leads(company: str | None = None, email: str | None = None) -> str:
-    """Look up a Lead by company name or email address. Provide at least one.
-    Use this to find a Lead's id before updating or deleting it, if the user
-    only gave you a name/company/email rather than an id."""
-    leads = find_leads(company=company, email=email)
+def search_leads(
+    company: str | None = None,
+    email: str | None = None,
+    status: str | None = None,
+    industry: str | None = None,
+    source: str | None = None,
+) -> str:
+    """Look up Leads by any combination of company, email, status (e.g. "Lost Lead",
+    "Contacted", "Not Contacted", "Pre-Qualified", "Contact in Future", "Junk Lead",
+    "Not Qualified"), industry, or source. With none of these, lists recent Leads.
+    Use this to find a Lead's id before updating or deleting it, if the user only
+    gave you identifying info rather than an id."""
+    leads = find_leads(company=company, email=email, status=status, industry=industry, source=source)
     if not leads:
-        return "No lead found matching those filters."
-    l = leads[0]
-    return (
+        return "No leads found matching those filters."
+    lines = [
         f"id={l.get('id')}, {l.get('First_Name')} {l.get('Last_Name')} "
         f"at {l.get('Company')}, status={l.get('Lead_Status')}"
-    )
+        for l in leads
+    ]
+    shown = lines[:15]
+    suffix = f"\n...and {len(lines) - 15} more" if len(lines) > 15 else ""
+    return f"{len(leads)} lead(s) found:\n" + "\n".join(shown) + suffix
 
 
 @tool

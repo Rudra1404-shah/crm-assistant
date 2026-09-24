@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ledger — CRM Assistant</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #F4F2EC;
+  --sidebar-bg: #1A1C1E;
+  --sidebar-active: #2E3134;
+  --sidebar-muted: #C9C6BD;
+  --sidebar-border: #34373A;
+  --teal: #7FC4BB;
+  --teal-deep: #0E6B63;
+  --teal-tint: #EAF4F2;
+  --teal-row: #F1F7F6;
+  --card-bg: #FFFFFF;
+  --card-border: #E2DED4;
+  --row-divider: #EEEBE4;
+  --input-border: #CFCAC0;
+  --text: #1A1C1E;
+  --text-muted: #5C5F63;
+  --text-body: #3A3D40;
+  --danger-border: #E8C3BE;
+  --danger-text: #A12A1F;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans', system-ui, sans-serif; }
+.serif { font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; }
+.mono { font-family: 'IBM Plex Mono', monospace; }
+
+.app { display: flex; min-height: 100vh; }
+
+/* ---- Sidebar ---- */
+.sidebar { width: 240px; flex-shrink: 0; background: var(--sidebar-bg); color: var(--bg); display: flex; flex-direction: column; gap: 4px; padding: 28px 16px; position: sticky; top: 0; height: 100vh; }
+.sidebar-logo { font-family: 'Instrument Serif', Georgia, serif; font-size: 30px; padding: 0 12px 28px; }
+.sidebar-logo .dot { color: var(--teal); }
+.nav-item { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 12px; border-radius: 8px; text-decoration: none; font-size: 15px; color: var(--sidebar-muted); cursor: pointer; border: none; background: none; width: 100%; text-align: left; font-family: inherit; }
+.nav-item svg { flex-shrink: 0; }
+.nav-item.active { background: var(--sidebar-active); color: #FFFFFF; }
+.sidebar-spacer { flex-grow: 1; }
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--sidebar-border); font-size: 13px; color: #A9A69D; display: flex; align-items: center; gap: 8px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); flex-shrink: 0; }
+
+/* ---- Main ---- */
+.main { flex-grow: 1; min-width: 0; padding: 40px 48px; display: flex; flex-direction: column; gap: 24px; }
+.view { display: none; flex-direction: column; gap: 24px; }
+.view.active { display: flex; }
+
+.page-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.page-header h1 { margin: 0; font-size: 48px; line-height: 1; }
+.page-header .subtitle { margin: 6px 0 0; font-size: 15px; color: var(--text-muted); }
+
+.btn { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 20px; border-radius: 8px; font-size: 15px; font-weight: 500; cursor: pointer; text-decoration: none; border: 1px solid transparent; font-family: inherit; }
+.btn-primary { background: var(--teal-deep); color: #FFFFFF; }
+.btn-dark { background: var(--text); color: #FFFFFF; }
+.btn-outline { background: #FFFFFF; color: var(--text); border-color: var(--input-border); height: 40px; padding: 0 16px; font-size: 14px; }
+.btn-outline-teal { background: #FFFFFF; color: var(--teal-deep); border-color: var(--teal-deep); height: 44px; }
+.btn-danger { background: #FFFFFF; color: var(--danger-text); border-color: var(--danger-border); height: 40px; padding: 0 16px; font-size: 14px; }
+.btn-icon { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--input-border); background: #fff; color: var(--text); cursor: pointer; }
+.btn:disabled { opacity: .5; cursor: default; }
+
+.search-card { display: flex; align-items: flex-end; gap: 16px; padding: 20px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; }
+.field-inline { display: flex; flex-direction: column; gap: 6px; flex-grow: 1; max-width: 420px; }
+.field-inline label { font-size: 13px; font-weight: 500; color: var(--text-body); }
+.field-inline input { height: 44px; padding: 0 14px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 15px; font-family: inherit; background: #fff; color: var(--text); }
+.or-sep { height: 44px; display: flex; align-items: center; font-size: 13px; color: var(--text-muted); }
+
+/* ---- Master/detail (Leads, Accounts, Contacts all use this now) ---- */
+.split-view { display: flex; gap: 24px; }
+.results-panel { flex-grow: 1; min-width: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.results-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid var(--card-border); }
+.results-header h2 { margin: 0; font-size: 15px; font-weight: 600; }
+.results-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.results-table thead tr { text-align: left; color: var(--text-muted); font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
+.results-table th { padding: 12px 20px; font-weight: 500; }
+.results-table td { padding: 14px 20px; border-top: 1px solid var(--row-divider); vertical-align: top; }
+.results-table tr.data-row { cursor: pointer; }
+.results-table tr.data-row.selected { background: var(--teal-row); box-shadow: inset 3px 0 0 var(--teal-deep); }
+.row-name { font-weight: 500; }
+.row-sub { font-size: 13px; color: var(--text-muted); }
+.badge { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
+.empty-note { padding: 32px 20px; color: var(--text-muted); font-size: 14px; }
+
+.detail-panel { width: 380px; flex-shrink: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; overflow: hidden; display: flex; position: sticky; top: 40px; align-self: flex-start; max-height: calc(100vh - 80px); }
+.detail-panel .empty-hint { margin: auto; color: var(--text-muted); font-size: 14px; text-align: center; padding: 24px; }
+.detail-rail { width: 6px; background: var(--teal-deep); flex-shrink: 0; }
+.detail-body { flex-grow: 1; min-width: 0; padding: 24px; display: flex; flex-direction: column; min-height: 0; }
+.detail-scroll { overflow-y: auto; flex-grow: 1; min-height: 0; }
+.detail-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 18px; }
+.detail-avatar { width: 52px; height: 52px; border-radius: 12px; background: var(--teal-tint); color: var(--teal-deep); display: flex; align-items: center; justify-content: center; font-family: 'Instrument Serif', Georgia, serif; font-size: 22px; flex-shrink: 0; }
+.detail-name { margin: 0; font-size: 22px; font-family: 'Instrument Serif', Georgia, serif; font-weight: 400; line-height: 1.25; }
+.detail-sub { font-size: 13px; color: var(--text-muted); margin-top: 3px; overflow-wrap: anywhere; }
+.detail-sub a { color: var(--teal-deep); text-decoration: none; }
+.detail-pill { display: inline-block; margin-top: 8px; padding: 3px 10px; border-radius: 999px; background: var(--bg); font-size: 11px; color: var(--text-body); }
+.detail-fieldbox { display: flex; flex-direction: column; border-radius: 10px; overflow: hidden; border: 1px solid var(--row-divider); }
+.detail-field-row { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; background: #FFFFFF; }
+.detail-field-row:nth-child(odd) { background: #FBFAF7; }
+.detail-field-row + .detail-field-row { border-top: 1px solid var(--row-divider); }
+.detail-field-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal-deep); flex-shrink: 0; margin-top: 5px; }
+.detail-field-dot.empty { background: #D8D4C8; }
+.detail-field-label { font-size: 12px; color: var(--text-muted); width: 72px; flex-shrink: 0; padding-top: 1px; }
+.detail-field-value { font-size: 13px; overflow-wrap: anywhere; flex-grow: 1; }
+.detail-field-value.empty { color: #B4B0A4; }
+.detail-desc-label { font-size: 12px; color: var(--text-muted); margin-top: 18px; }
+.detail-desc { margin: 4px 0 0; font-size: 13px; line-height: 1.55; color: var(--text-body); }
+.detail-footer { margin-top: auto; padding-top: 18px; display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.detail-footer .detail-id { font-size: 11px; color: #B4B0A4; }
+.detail-footer .detail-actions { display: flex; gap: 10px; flex-shrink: 0; }
+.detail-footer .btn { height: 36px; padding: 0 14px; font-size: 13px; }
+
+/* ---- Assistant ---- */
+.assistant-header { display: flex; flex-direction: column; gap: 4px; }
+.assistant-header h1 { margin: 0; font-size: 34px; }
+.chat-card { flex-grow: 1; min-height: 0; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+.chat-log { flex-grow: 1; overflow: auto; padding: 28px 32px; display: flex; flex-direction: column; gap: 20px; }
+.msg-row { display: flex; gap: 12px; max-width: 620px; }
+.msg-row.user { align-self: flex-end; flex-direction: row-reverse; }
+.avatar-sm { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+.avatar-sm.assistant { background: var(--text); color: var(--bg); font-family: 'Instrument Serif', Georgia, serif; }
+.avatar-sm.user { background: var(--teal-deep); color: #fff; font-weight: 600; }
+.bubble { border-radius: 4px 14px 14px 14px; padding: 14px 18px; font-size: 15px; line-height: 1.55; }
+.bubble.assistant { background: var(--bg); }
+.bubble.user { background: var(--teal-deep); color: #fff; border-radius: 14px 4px 14px 14px; white-space: pre-wrap; }
+.bubble.error { background: #FBEAE8; color: var(--danger-text); white-space: pre-wrap; }
+.bubble p { margin: 0 0 10px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul { margin: 4px 0 10px 18px; padding: 0; }
+.bubble ul:last-child { margin-bottom: 0; }
+.bubble li { margin-bottom: 4px; }
+.bubble strong { font-weight: 600; }
+.msg-col { display: flex; flex-direction: column; gap: 10px; }
+.tool-pill { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border: 1px solid var(--card-border); border-radius: 8px; font-size: 12px; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; line-height: 1.5; }
+.tool-pill svg { flex-shrink: 0; margin-top: 3px; }
+.tool-pill span { overflow-wrap: anywhere; }
+.chat-input-area { display: flex; gap: 12px; padding: 16px 20px; border-top: 1px solid var(--card-border); }
+.chat-input-area input { flex-grow: 1; height: 44px; padding: 0 16px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 15px; font-family: inherit; }
+
+/* ---- Shared form overlay (create + edit, all modules) ---- */
+.form-overlay { position: fixed; inset: 0; background: rgba(20,22,24,.62); backdrop-filter: blur(2px); display: none; align-items: flex-start; justify-content: center; padding: 48px 24px; overflow: auto; z-index: 100; }
+.form-overlay.active { display: flex; }
+.form-card { width: 100%; max-width: 680px; background: var(--bg); border-radius: 16px; box-shadow: 0 24px 64px rgba(0,0,0,.35); overflow: hidden; }
+.form-top { display: flex; align-items: center; gap: 12px; padding: 28px 32px 0; }
+.form-top h1 { margin: 0; font-size: 36px; }
+.form-top .subtitle { margin: 4px 0 0; font-size: 14px; color: var(--text-muted); }
+.form-fields { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 20px; background: var(--card-bg); border: 1px solid var(--card-border); border-radius: 12px; margin: 24px 32px 0; padding: 28px; }
+.form-field { display: flex; flex-direction: column; gap: 6px; }
+.form-field.span-2 { grid-column: span 2; }
+.form-field label { font-size: 13px; font-weight: 500; }
+.form-field label .req { color: var(--danger-text); }
+.form-field input, .form-field select, .form-field textarea { height: 44px; padding: 0 14px; border: 1px solid var(--input-border); border-radius: 8px; font-size: 15px; font-family: inherit; background: #fff; color: var(--text); }
+.form-field textarea { height: auto; min-height: 88px; padding: 10px 14px; resize: vertical; }
+.form-actions { display: flex; gap: 12px; align-items: center; padding: 20px 32px 28px; }
+.lookup-row { display: flex; gap: 8px; }
+.lookup-row input { flex-grow: 1; }
+.form-msg { font-size: 13px; }
+.form-msg.success { color: #0B564F; }
+.form-msg.error { color: var(--danger-text); }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <nav class="sidebar">
+    <div class="sidebar-logo">Ledger<span class="dot">.</span></div>
+    <button class="nav-item active" id="nav-leads" onclick="showView('leads')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"></path></svg>Leads
+    </button>
+    <button class="nav-item" id="nav-accounts" onclick="showView('accounts')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"></rect><path d="M9 7h6M9 11h6M9 15h3"></path></svg>Accounts
+    </button>
+    <button class="nav-item" id="nav-contacts" onclick="showView('contacts')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg>Contacts
+    </button>
+    <button class="nav-item" id="nav-assistant" onclick="showView('assistant')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg>Assistant
+    </button>
+    <div class="sidebar-spacer"></div>
+    <div class="sidebar-footer"><span class="status-dot"></span><span>Zoho CRM</span></div>
+  </nav>
+
+  <main class="main">
+
+    <!-- LEADS -->
+    <div class="view active" id="view-leads">
+      <header class="page-header">
+        <div>
+          <h1 class="serif">Leads</h1>
+          <p class="subtitle">Browse recent leads, or search by company / email.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openForm('leads')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New lead
+        </button>
+      </header>
+      <form class="search-card" onsubmit="event.preventDefault(); runSearchFromInputs('leads');">
+        <div class="field-inline">
+          <label>Company (exact match)</label>
+          <input id="leads-q-company" type="text" placeholder="Northwind Traders">
+        </div>
+        <span class="or-sep">or</span>
+        <div class="field-inline">
+          <label>Email</label>
+          <input id="leads-q-email" type="email" placeholder="name@company.com">
+        </div>
+        <button type="submit" class="btn btn-dark">Search</button>
+      </form>
+      <div class="split-view">
+        <section class="results-panel">
+          <div class="results-header"><h2 id="leads-results-title">Loading…</h2></div>
+          <div id="leads-results-wrap"></div>
+        </section>
+        <aside class="detail-panel" id="leads-detail">
+          <p class="empty-hint">Select a result to see details.</p>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ACCOUNTS -->
+    <div class="view" id="view-accounts">
+      <header class="page-header">
+        <div>
+          <h1 class="serif">Accounts</h1>
+          <p class="subtitle">Browse recent accounts, or search by exact name.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openForm('accounts')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New account
+        </button>
+      </header>
+      <form class="search-card" onsubmit="event.preventDefault(); runSearchFromInputs('accounts');">
+        <div class="field-inline">
+          <label>Account name (exact match)</label>
+          <input id="accounts-q-company" type="text" placeholder="Northwind Traders">
+        </div>
+        <button type="submit" class="btn btn-dark">Search</button>
+      </form>
+      <div class="split-view">
+        <section class="results-panel">
+          <div class="results-header"><h2 id="accounts-results-title">Loading…</h2></div>
+          <div id="accounts-results-wrap"></div>
+        </section>
+        <aside class="detail-panel" id="accounts-detail">
+          <p class="empty-hint">Select a result to see details.</p>
+        </aside>
+      </div>
+    </div>
+
+    <!-- CONTACTS -->
+    <div class="view" id="view-contacts">
+      <header class="page-header">
+        <div>
+          <h1 class="serif">Contacts</h1>
+          <p class="subtitle">Browse recent contacts, or search by email.</p>
+        </div>
+        <button class="btn btn-primary" onclick="openForm('contacts')">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>New contact
+        </button>
+      </header>
+      <form class="search-card" onsubmit="event.preventDefault(); runSearchFromInputs('contacts');">
+        <div class="field-inline">
+          <label>Email</label>
+          <input id="contacts-q-email" type="email" placeholder="name@company.com">
+        </div>
+        <button type="submit" class="btn btn-dark">Search</button>
+      </form>
+      <div class="split-view">
+        <section class="results-panel">
+          <div class="results-header"><h2 id="contacts-results-title">Loading…</h2></div>
+          <div id="contacts-results-wrap"></div>
+        </section>
+        <aside class="detail-panel" id="contacts-detail">
+          <p class="empty-hint">Select a result to see details.</p>
+        </aside>
+      </div>
+    </div>
+
+    <!-- ASSISTANT -->
+    <div class="view" id="view-assistant">
+      <div class="assistant-header">
+        <h1 class="serif">Assistant</h1>
+        <p class="subtitle">Ask it to search, create, update, or delete Accounts, Contacts, and Leads in plain language.</p>
+      </div>
+      <div class="chat-card">
+        <div class="chat-log" id="chat-log">
+          <div class="msg-row">
+            <div class="avatar-sm assistant serif">L</div>
+            <div class="bubble assistant">Hi — I can look up, create, or update Leads, Accounts, and Contacts in Zoho CRM. What do you need?</div>
+          </div>
+        </div>
+        <div class="chat-input-area">
+          <input id="chat-input" placeholder="Ask about leads, accounts, or contacts..." onkeydown="if(event.key==='Enter') sendChatMessage()">
+          <button class="btn btn-primary" onclick="sendChatMessage()">Send</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- SHARED CREATE/EDIT FORM OVERLAY -->
+<div class="form-overlay" id="form-overlay">
+  <form class="form-card" id="entity-form" onsubmit="event.preventDefault(); submitForm();">
+    <div class="form-top">
+      <button type="button" class="btn-icon" onclick="closeForm()" aria-label="Close">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"></path></svg>
+      </button>
+      <div>
+        <h1 class="serif" id="form-title">New lead</h1>
+        <p class="subtitle" id="form-subtitle">Fill in the fields below.</p>
+      </div>
+    </div>
+    <div class="form-fields" id="form-fields"></div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">Save</button>
+      <button type="button" class="btn btn-danger" id="form-delete-btn" style="display:none" onclick="deleteFromForm()">Delete</button>
+      <span class="form-msg" id="form-msg"></span>
+    </div>
+  </form>
+</div>
+
+<script>
+let BASE_URL = "";
+
+async function apiCall(method, path, body) {
+  const res = await fetch(BASE_URL + path, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const detail = data && data.detail ? JSON.stringify(data.detail) : `HTTP ${res.status}`;
+    throw new Error(detail);
+  }
+  return data;
+}
+
+const STATUS_BADGE = {
+  "Contacted": "background:#E3F0EE;color:#0B564F",
+  "Not Contacted": "background:#EEEBE4;color:#3A3D40",
+  "Pre-Qualified": "background:#FBEFD6;color:#6E4700",
+  "Contact in Future": "background:#EAF4F2;color:#0E6B63",
+  "Junk Lead": "background:#F6E4E1;color:#A12A1F",
+  "Lost Lead": "background:#F6E4E1;color:#A12A1F",
+  "Not Qualified": "background:#EEEBE4;color:#3A3D40",
+};
+function badgeStyle(status) { return STATUS_BADGE[status] || "background:#EEEBE4;color:#3A3D40"; }
+
+// ============================================================
+// MODULE CONFIG — one source of truth for columns + detail layout
+// ============================================================
+
+function initials(a, b) { return ((a||"").charAt(0) + (b||"").charAt(0)).toUpperCase() || "?"; }
+
+function fieldRow(label, value) {
+  const empty = !value;
+  return `<div class="detail-field-row">
+    <span class="detail-field-dot ${empty ? "empty" : ""}"></span>
+    <span class="detail-field-label">${label}</span>
+    <span class="detail-field-value ${empty ? "empty" : ""}">${value || "Not on file"}</span>
+  </div>`;
+}
+
+const MODULES = {
+  leads: {
+    label: "Leads", singular: "lead", idField: "id",
+    listPath: "/zoho/leads",
+    buildQuery: q => q.email ? { email: q.email } : (q.company ? { company: q.company } : {}),
+    columns: [
+      { header: "Name", cell: r => `<div class="row-name">${r.First_Name||""} ${r.Last_Name||""}</div><div class="row-sub">${r.Title||""}</div>` },
+      { header: "Email", cell: r => r.Email || "" },
+      { header: "Status", cell: r => r.Lead_Status ? `<span class="badge" style="${badgeStyle(r.Lead_Status)}">${r.Lead_Status}</span>` : "" },
+      { header: "Source", cell: r => r.Lead_Source || "" },
+    ],
+    detail: r => ({
+      avatar: initials(r.First_Name, r.Last_Name),
+      name: `${r.First_Name||""} ${r.Last_Name||""}`.trim() || "—",
+      sub: r.Title || null,
+      pill: r.Company || null,
+      fields: [
+        { label: "Email", value: r.Email },
+        { label: "Phone", value: r.Phone },
+        { label: "Status", value: r.Lead_Status },
+        { label: "Industry", value: r.Industry },
+        { label: "Source", value: r.Lead_Source },
+        { label: "Website", value: r.Website },
+      ],
+      description: r.Description,
+    }),
+  },
+  accounts: {
+    label: "Accounts", singular: "account", idField: "id",
+    listPath: "/zoho/accounts",
+    buildQuery: q => q.company ? { company: q.company } : {},
+    columns: [
+      { header: "Account", cell: r => `<div class="row-name">${r.Account_Name||""}</div>` },
+      { header: "Industry", cell: r => r.Industry || "" },
+      { header: "Phone", cell: r => r.Phone || "" },
+      { header: "Website", cell: r => r.Website || "" },
+    ],
+    detail: r => ({
+      avatar: (r.Account_Name || "?").charAt(0).toUpperCase(),
+      name: r.Account_Name || "—",
+      sub: r.Website ? `<a href="${r.Website}" target="_blank" rel="noopener">${r.Website}</a>` : null,
+      pill: null,
+      fields: [
+        { label: "Phone", value: r.Phone },
+        { label: "Industry", value: r.Industry },
+        { label: "Revenue", value: r.Annual_Revenue != null ? String(r.Annual_Revenue) : null },
+      ],
+      description: r.Description,
+    }),
+  },
+  contacts: {
+    label: "Contacts", singular: "contact", idField: "id",
+    listPath: "/zoho/contacts",
+    buildQuery: q => q.email ? { email: q.email } : {},
+    columns: [
+      { header: "Name", cell: r => `<div class="row-name">${r.First_Name||""} ${r.Last_Name||""}</div><div class="row-sub">${r.Title||""}</div>` },
+      { header: "Email", cell: r => r.Email || "" },
+      { header: "Phone", cell: r => r.Phone || "" },
+      { header: "Company", cell: r => (r.Account_Name && r.Account_Name.name) || "" },
+    ],
+    detail: r => ({
+      avatar: initials(r.First_Name, r.Last_Name),
+      name: `${r.First_Name||""} ${r.Last_Name||""}`.trim() || "—",
+      sub: r.Title || null,
+      pill: (r.Account_Name && r.Account_Name.name) || "No linked account",
+      fields: [
+        { label: "Email", value: r.Email },
+        { label: "Phone", value: r.Phone },
+        { label: "Mobile", value: r.Mobile },
+      ],
+      description: undefined,
+    }),
+  },
+};
+
+const moduleState = {
+  leads: { cache: [], selected: -1, loaded: false },
+  accounts: { cache: [], selected: -1, loaded: false },
+  contacts: { cache: [], selected: -1, loaded: false },
+};
+
+function showView(name) {
+  document.querySelectorAll(".view").forEach(el => el.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(el => el.classList.remove("active"));
+  document.getElementById(`view-${name}`).classList.add("active");
+  document.getElementById(`nav-${name}`).classList.add("active");
+  if (MODULES[name] && !moduleState[name].loaded) {
+    moduleState[name].loaded = true;
+    runSearch(name, {});
+  }
+}
+
+function runSearchFromInputs(moduleKey) {
+  const query = {};
+  if (moduleKey === "leads") {
+    query.company = document.getElementById("leads-q-company").value.trim();
+    query.email = document.getElementById("leads-q-email").value.trim();
+  } else if (moduleKey === "accounts") {
+    query.company = document.getElementById("accounts-q-company").value.trim();
+  } else if (moduleKey === "contacts") {
+    query.email = document.getElementById("contacts-q-email").value.trim();
+  }
+  runSearch(moduleKey, query);
+}
+
+async function runSearch(moduleKey, query) {
+  const m = MODULES[moduleKey];
+  const wrap = document.getElementById(`${moduleKey}-results-wrap`);
+  const titleEl = document.getElementById(`${moduleKey}-results-title`);
+  const hasFilter = Object.keys(m.buildQuery(query)).length > 0;
+  wrap.innerHTML = "<p class='empty-note'>Loading…</p>";
+  try {
+    const params = new URLSearchParams(m.buildQuery(query));
+    const qs = params.toString();
+    const results = await apiCall("GET", `${m.listPath}${qs ? "?" + qs : ""}`);
+    moduleState[moduleKey].cache = results || [];
+    moduleState[moduleKey].selected = moduleState[moduleKey].cache.length ? 0 : -1;
+    titleEl.textContent = moduleState[moduleKey].cache.length
+      ? `${moduleState[moduleKey].cache.length} ${m.label.toLowerCase()}${hasFilter ? "" : " (recent)"}`
+      : "No results";
+    renderTable(moduleKey);
+    renderDetail(moduleKey);
+  } catch (e) {
+    wrap.innerHTML = `<p class="empty-note">Error: ${e.message}</p>`;
+    titleEl.textContent = m.label;
+  }
+}
+
+function renderTable(moduleKey) {
+  const m = MODULES[moduleKey];
+  const state = moduleState[moduleKey];
+  const wrap = document.getElementById(`${moduleKey}-results-wrap`);
+  if (!state.cache.length) { wrap.innerHTML = "<p class='empty-note'>No results.</p>"; return; }
+  wrap.innerHTML = `
+    <table class="results-table">
+      <thead><tr>${m.columns.map(c => `<th>${c.header}</th>`).join("")}</tr></thead>
+      <tbody>
+        ${state.cache.map((r, i) => `
+          <tr class="data-row ${i === state.selected ? "selected" : ""}" onclick="selectRow('${moduleKey}', ${i})">
+            ${m.columns.map(c => `<td>${c.cell(r)}</td>`).join("")}
+          </tr>`).join("")}
+      </tbody>
+    </table>`;
+}
+
+function selectRow(moduleKey, i) {
+  moduleState[moduleKey].selected = i;
+  renderTable(moduleKey);
+  renderDetail(moduleKey);
+}
+
+function renderDetail(moduleKey) {
+  const m = MODULES[moduleKey];
+  const state = moduleState[moduleKey];
+  const el = document.getElementById(`${moduleKey}-detail`);
+  if (state.selected < 0) { el.innerHTML = "<p class='empty-hint'>Select a result to see details.</p>"; return; }
+  const r = state.cache[state.selected];
+  const d = m.detail(r);
+  const fieldsHtml = d.fields.map(f => fieldRow(f.label, f.value)).join("");
+  const descHtml = d.description !== undefined
+    ? `<div class="detail-desc-label">Description</div><p class="detail-desc">${d.description || "—"}</p>`
+    : "";
+  el.innerHTML = `
+    <div class="detail-rail"></div>
+    <div class="detail-body">
+      <div class="detail-head">
+        <div class="detail-avatar">${d.avatar}</div>
+        <div style="min-width:0">
+          <h2 class="detail-name">${d.name}</h2>
+          <div class="detail-sub">${d.sub || "—"}</div>
+          ${d.pill ? `<div class="detail-pill">${d.pill}</div>` : ""}
+        </div>
+      </div>
+      <div class="detail-scroll">
+        <div class="detail-fieldbox">${fieldsHtml}</div>
+        ${descHtml}
+      </div>
+      <div class="detail-footer">
+        <span class="detail-id mono">id ${r[m.idField]}</span>
+        <div class="detail-actions">
+          <button class="btn btn-outline-teal" onclick="editSelected('${moduleKey}')">Edit</button>
+          <button class="btn btn-danger" onclick="quickDelete('${moduleKey}', '${r[m.idField]}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function editSelected(moduleKey) {
+  const state = moduleState[moduleKey];
+  openForm(moduleKey, state.cache[state.selected]);
+}
+
+async function quickDelete(moduleKey, id) {
+  const m = MODULES[moduleKey];
+  const cfg = FORM_CONFIG[moduleKey];
+  if (!confirm(`Delete this ${m.singular} (id ${id})? This cannot be undone.`)) return;
+  try {
+    await apiCall("DELETE", cfg.deletePath(id));
+    runSearchFromInputs(moduleKey);
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+
+// ============================================================
+// SHARED CREATE/EDIT FORM
+// ============================================================
+
+const FORM_CONFIG = {
+  leads: {
+    title: "lead",
+    createPath: "/zoho/leads",
+    updatePath: id => `/zoho/leads/${id}`,
+    deletePath: id => `/zoho/leads/${id}`,
+    fields: [
+      { name: "First_Name", label: "First name" },
+      { name: "Last_Name", label: "Last name", required: true },
+      { name: "Company", label: "Company", required: true, span2: true },
+      { name: "Email", label: "Email", required: true, type: "email" },
+      { name: "Phone", label: "Phone", type: "tel" },
+      { name: "Lead_Status", label: "Lead status", options: ["Not Contacted", "Contacted", "Pre-Qualified", "Contact in Future", "Junk Lead", "Lost Lead", "Not Qualified"] },
+      { name: "Description", label: "Description", required: true, textarea: true, span2: true },
+    ],
+  },
+  accounts: {
+    title: "account",
+    createPath: "/zoho/accounts",
+    updatePath: id => `/zoho/accounts/${id}`,
+    deletePath: id => `/zoho/accounts/${id}`,
+    fields: [
+      { name: "Account_Name", label: "Account name", required: true, span2: true },
+      { name: "Website", label: "Website" },
+      { name: "Phone", label: "Phone" },
+      { name: "Industry", label: "Industry" },
+      { name: "Annual_Revenue", label: "Annual revenue", type: "number" },
+      { name: "Description", label: "Description", textarea: true, span2: true },
+    ],
+  },
+  contacts: {
+    title: "contact",
+    createPath: "/zoho/contacts",
+    updatePath: id => `/zoho/contacts/${id}`,
+    deletePath: id => `/zoho/contacts/${id}`,
+    fields: [
+      { name: "First_Name", label: "First name" },
+      { name: "Last_Name", label: "Last name", required: true },
+      { name: "Email", label: "Email", type: "email" },
+      { name: "Phone", label: "Phone", type: "tel" },
+      { name: "Mobile", label: "Mobile", type: "tel" },
+      { name: "Title", label: "Title" },
+      { name: "account_id", label: "Account (linked company)", lookup: true, span2: true },
+    ],
+  },
+};
+
+let formState = { moduleKey: null, record: null };
+
+function openForm(moduleKey, record) {
+  const cfg = FORM_CONFIG[moduleKey];
+  formState = { moduleKey, record: record || null };
+  const isEdit = !!record;
+
+  document.getElementById("form-title").textContent = (isEdit ? "Edit " : "New ") + cfg.title;
+  document.getElementById("form-subtitle").textContent = isEdit
+    ? "Only include the fields you want changed — the rest stay as they are."
+    : "* marks a required field.";
+  document.getElementById("form-delete-btn").style.display = isEdit ? "inline-flex" : "none";
+  document.getElementById("form-msg").textContent = "";
+  document.getElementById("form-msg").className = "form-msg";
+
+  document.getElementById("form-fields").innerHTML = cfg.fields.map(f => {
+    let val = "";
+    if (record) {
+      if (f.lookup) val = (record.Account_Name && record.Account_Name.id) || "";
+      else val = record[f.name] != null ? record[f.name] : "";
+    }
+    const spanClass = f.span2 ? "span-2" : "";
+    const reqMark = (!isEdit && f.required) ? ' <span class="req">*</span>' : "";
+    if (f.lookup) {
+      return `<div class="form-field ${spanClass}"><label>${f.label}${reqMark}</label>
+        <div class="lookup-row">
+          <input id="ff-${f.name}" type="text" value="${val}" placeholder="Account ID">
+          <button type="button" class="btn btn-outline" onclick="lookupAccountId('ff-${f.name}')">Find by company</button>
+        </div></div>`;
+    }
+    if (f.options) {
+      return `<div class="form-field ${spanClass}"><label>${f.label}${reqMark}</label>
+        <select id="ff-${f.name}">
+          <option value="">${isEdit ? "— leave unchanged —" : "— select —"}</option>
+          ${f.options.map(o => `<option value="${o}" ${val === o ? "selected" : ""}>${o}</option>`).join("")}
+        </select></div>`;
+    }
+    if (f.textarea) {
+      return `<div class="form-field ${spanClass}"><label>${f.label}${reqMark}</label><textarea id="ff-${f.name}">${val}</textarea></div>`;
+    }
+    return `<div class="form-field ${spanClass}"><label>${f.label}${reqMark}</label><input id="ff-${f.name}" type="${f.type || "text"}" value="${val}"></div>`;
+  }).join("");
+
+  document.getElementById("form-overlay").classList.add("active");
+}
+
+function closeForm() {
+  document.getElementById("form-overlay").classList.remove("active");
+}
+
+async function lookupAccountId(inputId) {
+  const company = prompt("Company name to search for:");
+  if (!company) return;
+  try {
+    const results = await apiCall("GET", `/zoho/accounts?company=${encodeURIComponent(company)}`);
+    if (!results || !results.length) { alert("No account found for that name."); return; }
+    document.getElementById(inputId).value = results[0].id;
+  } catch (e) {
+    alert("Error: " + e.message);
+  }
+}
+
+function collectFormFields(cfg) {
+  const out = {};
+  for (const f of cfg.fields) {
+    const el = document.getElementById(`ff-${f.name}`);
+    const raw = el.value.trim();
+    if (!raw) continue;
+    if (f.lookup) { out["Account_Name"] = { id: raw }; continue; }
+    out[f.name] = f.type === "number" ? parseFloat(raw) : raw;
+  }
+  return out;
+}
+
+async function submitForm() {
+  const { moduleKey, record } = formState;
+  const cfg = FORM_CONFIG[moduleKey];
+  const fields = collectFormFields(cfg);
+  const msgEl = document.getElementById("form-msg");
+  try {
+    if (record) {
+      await apiCall("PUT", cfg.updatePath(record.id), fields);
+      msgEl.textContent = "Updated.";
+      msgEl.className = "form-msg success";
+    } else {
+      const result = await apiCall("POST", cfg.createPath, fields);
+      msgEl.textContent = "Created, id=" + (result.details ? result.details.id : "?");
+      msgEl.className = "form-msg success";
+    }
+    runSearchFromInputs(moduleKey);
+    setTimeout(closeForm, 700);
+  } catch (e) {
+    msgEl.textContent = "Error: " + e.message;
+    msgEl.className = "form-msg error";
+  }
+}
+
+async function deleteFromForm() {
+  const { moduleKey, record } = formState;
+  if (!record) return;
+  const cfg = FORM_CONFIG[moduleKey];
+  if (!confirm(`Delete this ${cfg.title} (id ${record.id})? This cannot be undone.`)) return;
+  try {
+    await apiCall("DELETE", cfg.deletePath(record.id));
+    closeForm();
+    runSearchFromInputs(moduleKey);
+  } catch (e) {
+    document.getElementById("form-msg").textContent = "Error: " + e.message;
+    document.getElementById("form-msg").className = "form-msg error";
+  }
+}
+
+// ============================================================
+// ASSISTANT
+// ============================================================
+
+const sessionId = (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()));
+
+function escapeHtml(s) {
+  return (s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function inlineMarkdown(s) {
+  return escapeHtml(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+}
+
+function renderMarkdown(text) {
+  const lines = (text || "").split("\n");
+  let html = "";
+  let inList = false;
+  for (const line of lines) {
+    const bullet = line.match(/^\s*[-*]\s+(.*)/);
+    if (bullet) {
+      if (!inList) { html += "<ul>"; inList = true; }
+      html += `<li>${inlineMarkdown(bullet[1])}</li>`;
+      continue;
+    }
+    if (inList) { html += "</ul>"; inList = false; }
+    if (line.trim() === "") continue;
+    html += `<p>${inlineMarkdown(line)}</p>`;
+  }
+  if (inList) html += "</ul>";
+  return html;
+}
+
+function appendUserBubble(text) {
+  const log = document.getElementById("chat-log");
+  log.insertAdjacentHTML("beforeend", `
+    <div class="msg-row user">
+      <div class="avatar-sm user">U</div>
+      <div class="bubble user"></div>
+    </div>`);
+  log.lastElementChild.querySelector(".bubble").textContent = text;
+  log.scrollTop = log.scrollHeight;
+}
+
+function appendAssistantPlaceholder() {
+  const log = document.getElementById("chat-log");
+  log.insertAdjacentHTML("beforeend", `
+    <div class="msg-row">
+      <div class="avatar-sm assistant serif">L</div>
+      <div class="msg-col"><div class="bubble assistant">…</div></div>
+    </div>`);
+  log.scrollTop = log.scrollHeight;
+  return log.lastElementChild.querySelector(".msg-col");
+}
+
+function toolPillHTML(call) {
+  return `<div class="tool-pill">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0E6B63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+    <span>${call.name}() → ${escapeHtml(call.result)}</span>
+  </div>`;
+}
+
+async function sendChatMessage() {
+  const input = document.getElementById("chat-input");
+  const message = input.value.trim();
+  if (!message) return;
+  appendUserBubble(message);
+  input.value = "";
+  const col = appendAssistantPlaceholder();
+  try {
+    const result = await apiCall("POST", "/chat", { session_id: sessionId, message });
+    const pills = (result.tool_calls || []).map(toolPillHTML).join("");
+    col.innerHTML = `${pills}<div class="bubble assistant"></div>`;
+    col.querySelector(".bubble").innerHTML = renderMarkdown(result.reply);
+  } catch (e) {
+    col.innerHTML = `<div class="bubble assistant error"></div>`;
+    col.querySelector(".bubble").textContent = "Error: " + e.message;
+  }
+  document.getElementById("chat-log").scrollTop = document.getElementById("chat-log").scrollHeight;
+}
+
+// Load Leads immediately since it's the default tab
+moduleState.leads.loaded = true;
+runSearch("leads", {});
+</script>
+</body>
+</html>
